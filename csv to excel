@@ -1,0 +1,41 @@
+import cdflib
+import pandas as pd
+import numpy as np
+
+# --- Input path ---
+file_path = r"C:\Users\admins\Pictures\Screenshots\AL1_ASW91_L2_TH2_20250701_UNP_9999_999999_V02.cdf"
+cdf_file = cdflib.CDF(file_path)
+info = cdf_file.cdf_info()
+
+# --- Output Excel path ---
+excel_path = file_path.replace('.cdf', '.xlsx')
+writer = pd.ExcelWriter(excel_path, engine='openpyxl')
+
+# --- Export variables ---
+for var in info.zVariables:
+    try:
+        data = cdf_file.varget(var)
+
+        # Special handling for sun_angle_tha2 (3D array)
+        if var == 'sun_angle_tha2':
+            shape = data.shape  # e.g., (17274, 32, 3)
+            flat_data = data.reshape(shape[0], shape[1] * shape[2])  # flatten to (17274, 96)
+            df = pd.DataFrame(flat_data)
+
+        # For all array-like data
+        elif hasattr(data, '__len__') and not isinstance(data, (str, bytes)):
+            df = pd.DataFrame(data)
+
+        # For scalar values
+        else:
+            df = pd.DataFrame([data])
+
+        # Write to Excel (sheet name must be ≤ 31 characters)
+        df.to_excel(writer, sheet_name=var[:31], index=False)
+        print(f"✅ Exported: {var}")
+
+    except Exception as e:
+        print(f"❌ Could not export {var}: {e}")
+
+writer.close()
+print(f"\n✅ All variables exported to:\n{excel_path}")
