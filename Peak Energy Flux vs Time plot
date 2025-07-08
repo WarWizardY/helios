@@ -1,0 +1,42 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime, timedelta
+
+# --- File path ---
+file = r"C:\Users\admins\Desktop\Isro BAH\AL1_ASW91_L2_TH2_20250701_UNP_9999_999999_V02 (1)_CLEANED.xlsx"
+
+# --- Load cleaned flux sheets and epoch ---
+epoch = pd.read_excel(file, sheet_name="epoch_for_cdf_mod")
+s15 = pd.read_excel(file, sheet_name="integrated_flux_s15_mod")
+s16 = pd.read_excel(file, sheet_name="integrated_flux_s16_mod")
+s17 = pd.read_excel(file, sheet_name="integrated_flux_s17_mod")
+s18 = pd.read_excel(file, sheet_name="integrated_flux_s18_mod")
+s19 = pd.read_excel(file, sheet_name="integrated_flux_s19_mod")
+
+# --- Convert epoch to datetime ---
+def convert_epoch_to_datetime(epoch_series):
+    base = datetime(1, 1, 1)
+    return [base + timedelta(milliseconds=ms) for ms in epoch_series.squeeze()]
+
+time_utc = convert_epoch_to_datetime(epoch)
+
+# --- Compute Peak Flux Across All Sectors ---
+combined = pd.concat([s15, s16, s17, s18, s19], axis=1)
+peak_flux = combined.max(axis=1)
+
+# --- Plot ---
+plt.figure(figsize=(14, 6))
+plt.plot(time_utc, peak_flux, color='navy', linewidth=1)
+
+# --- Format axes ---
+plt.title("Peak Energy Flux vs Time (SWIS THA-2)", fontsize=14)
+plt.xlabel("UTC", fontsize=12)
+plt.ylabel("Peak energy flux [eV/(cm²·sr·s·eV)]", fontsize=12)
+
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H'))
+plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=2))
+plt.ticklabel_format(style='sci', axis='y', scilimits=(8,8))  # Scientific at 1e8
+plt.grid(True, linestyle='--', alpha=0.3)
+plt.tight_layout()
+plt.show()
