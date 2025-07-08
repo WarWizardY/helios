@@ -1,0 +1,47 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+
+# === 1. File path ===
+file_path = r"C:\Users\admins\Desktop\Isro BAH\AL1_ASW91_L2_TH2_20250701_UNP_9999_999999_V02 (1)_CLEANED.xlsx"
+
+# === 2. Load all S15–S19 integrated flux sheets ===
+sector_sheets = [f"integrated_flux_s{i}_mod" for i in range(15, 20)]
+dfs = [pd.read_excel(file_path, sheet_name=sh, header=None) for sh in sector_sheets]
+
+# === 3. Concatenate and compute peak flux ===
+df_all = pd.concat(dfs, axis=1)  # shape: (17275, 250)
+peak_flux = df_all.max(axis=1)
+
+# === 4. Create dataframe and label CMEs ===
+df_out = pd.DataFrame({
+    "sample_index": range(len(peak_flux)),
+    "peak_flux": peak_flux,
+})
+
+# Label spikes as CME if flux > 8e8 (tweak this if needed)
+THRESHOLD = 8e8
+df_out["CME_label"] = (df_out["peak_flux"] > THRESHOLD).astype(int)
+
+# === 5. Save to CSV ===
+output_path = r"C:\Users\admins\Desktop\Isro BAH\swis_features_labels.csv"
+df_out.to_csv(output_path, index=False)
+print(f"✅ Saved: {output_path}")
+
+# === 6. Plot with labels marked ===
+plt.figure(figsize=(12, 6))
+plt.plot(df_out["sample_index"], df_out["peak_flux"], label="Peak Sector Flux", color="firebrick")
+
+# Mark CME spikes
+plt.scatter(df_out[df_out["CME_label"] == 1]["sample_index"],
+            df_out[df_out["CME_label"] == 1]["peak_flux"],
+            color='black', s=12, label="CME Candidate")
+
+plt.title("SWIS THA-2 Peak Energy Flux (w/ CME Labels)", fontsize=14, weight='bold')
+plt.xlabel("Sample Index")
+plt.ylabel("Flux (eV/cm²·sr·s·eV)")
+plt.gca().yaxis.set_major_formatter(FuncFormatter(lambda x, _: f"{int(x/1e8)}×10⁸"))
+plt.grid(True, linestyle='--', alpha=0.4)
+plt.legend()
+plt.tight_layout()
+plt.show()
