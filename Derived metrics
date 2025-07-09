@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from scipy.stats import linregress
 
 # === File Paths ===
-input_file = r"C:\Users\admins\Desktop\CDF 6\AL1_ASW91_L2_TH2_20240825_UNP_9999_999999_V02_CLEANED.xlsx"
+input_file = r"C:\Users\admins\Desktop\Isro BAH\AL1_ASW91_L2_TH2_20240804_UNP_9999_999999_V02_CLEANED.xlsx"
 output_file = input_file.replace(".xlsx", "_DERIVED.xlsx")
 
 # === Load Sheets ===
