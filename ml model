@@ -1,0 +1,74 @@
+import pandas as pd
+import xgboost as xgb
+import joblib
+
+# === List of all files with labels ===
+files_info = [
+    {
+        "date": "2024-08-28",
+        "label": 1,
+        "path": r"C:\Users\admins\Desktop\CDF 1\AL1_ASW91_L2_TH1_20240828_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+    {
+        "date": "2024-08-24",
+        "label": 1,
+        "path": r"C:\Users\admins\Desktop\CDF 2\AL1_ASW91_L2_TH2_20240824_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+    {
+        "date": "2024-08-22",
+        "label": 1,
+        "path": r"C:\Users\admins\Desktop\CDF 3\AL1_ASW91_L2_TH2_20240822_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+    {
+        "date": "2024-08-28",
+        "label": 1,
+        "path": r"C:\Users\admins\Desktop\CDF 4\AL1_ASW91_L2_TH2_20240828_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+    {
+        "date": "2024-08-25",
+        "label": 0,
+        "path": r"C:\Users\admins\Desktop\CDF 5\AL1_ASW91_L2_TH2_20240825_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+    {
+        "date": "2024-08-25",
+        "label": 0,
+        "path": r"C:\Users\admins\Desktop\CDF 6\AL1_ASW91_L2_TH2_20240825_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+    },
+]
+
+# === Step 1: Load and aggregate features from each file ===
+frames = []
+
+for entry in files_info:
+    df = pd.read_excel(entry["path"], sheet_name="Derived_Metrics")
+    agg = {
+        "peak_flux": df["peak_flux"].max(),
+        "mean_flux": df["mean_flux"].mean(),
+        "d_flux_dt": df["d_flux_dt"].max(),
+        "energy_integrated_flux": df["energy_integrated_flux"].sum(),
+        "anisotropy_index": df["anisotropy_index"].mean(),
+        "spectral_slope": df["spectral_slope"].mean()
+    }
+    agg["label"] = entry["label"]
+    agg["date"] = entry["date"]
+    frames.append(pd.DataFrame([agg]))
+
+# === Step 2: Combine data ===
+all_data = pd.concat(frames, ignore_index=True)
+
+# === Step 3: Handle missing spectral_slope (mean imputation) ===
+all_data["spectral_slope"].fillna(all_data["spectral_slope"].mean(), inplace=True)
+
+# === Step 4: Train XGBoost ===
+X = all_data.drop(columns=["label", "date"])
+y = all_data["label"]
+
+model = xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss")
+model.fit(X, y)
+
+# === Step 5: Save model ===
+joblib.dump(model, "cme_classifier.pkl")
+print("\n✅ Model trained and saved as 'cme_classifier.pkl'")
+
+# === Optional: Print training summary ===
+print("\n📊 Training Data:\n", all_data)
