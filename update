@@ -1,0 +1,7 @@
+from Cme_Prediction_Pipeline import update_model_with_new_entry
+
+update_model_with_new_entry(
+    file_path=r"C:\Users\admins\Desktop\8\AL1_ASW91_L2_TH2_20250616_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx",
+    date_str="2025-06-16",
+    label=1  # CME
+)
