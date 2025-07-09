@@ -1,65 +1,54 @@
+@"
 import pandas as pd
+import numpy as np
 import joblib
+import os
 import xgboost as xgb
 
-# === Step 1: Paths ===
-new_file = r"C:\Users\admins\Desktop\Isro BAH\AL1_ASW91_L2_TH2_20240804_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
-model_path = "cme_classifier.pkl"
-
-# === Step 2: Load previous training data ===
-# Reconstruct the known training data
-files_info = [
-    {"path": r"C:\Users\admins\Desktop\CDF 1\AL1_ASW91_L2_TH1_20240828_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 1, "date": "2024-08-28"},
-    {"path": r"C:\Users\admins\Desktop\CDF 2\AL1_ASW91_L2_TH2_20240824_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 1, "date": "2024-08-24"},
-    {"path": r"C:\Users\admins\Desktop\CDF 3\AL1_ASW91_L2_TH2_20240822_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 1, "date": "2024-08-22"},
-    {"path": r"C:\Users\admins\Desktop\CDF 4\AL1_ASW91_L2_TH2_20240828_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 1, "date": "2024-08-28"},
-    {"path": r"C:\Users\admins\Desktop\CDF 5\AL1_ASW91_L2_TH2_20240825_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 0, "date": "2024-08-25"},
-    {"path": r"C:\Users\admins\Desktop\CDF 6\AL1_ASW91_L2_TH2_20240825_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx", "label": 0, "date": "2024-08-25"}
-]
-
-frames = []
-for entry in files_info:
-    df = pd.read_excel(entry["path"], sheet_name="Derived_Metrics")
-    agg = {
+def update_model_with_new_entry(file_path, date_str, label, model_path="cme_classifier.pkl"):
+    # === Step 1: Load derived features ===
+    df = pd.read_excel(file_path, sheet_name="Derived_Metrics")
+    features = {
         "peak_flux": df["peak_flux"].max(),
         "mean_flux": df["mean_flux"].mean(),
-        "d_flux_dt": df["d_flux_dt"].max(),
+        "d_flux_dt": df["mean_flux"].diff().fillna(0).max(),
         "energy_integrated_flux": df["energy_integrated_flux"].sum(),
         "anisotropy_index": df["anisotropy_index"].mean(),
         "spectral_slope": df["spectral_slope"].mean()
     }
-    agg["label"] = entry["label"]
-    agg["date"] = entry["date"]
-    frames.append(pd.DataFrame([agg]))
 
-# === Step 3: Add new case (label 0)
-df_new = pd.read_excel(new_file, sheet_name="Derived_Metrics")
-new_agg = {
-    "peak_flux": df_new["peak_flux"].max(),
-    "mean_flux": df_new["mean_flux"].mean(),
-    "d_flux_dt": df_new["mean_flux"].diff().fillna(0).max(),
-    "energy_integrated_flux": df_new["energy_integrated_flux"].sum(),
-    "anisotropy_index": df_new["anisotropy_index"].mean(),
-    "spectral_slope": df_new["spectral_slope"].mean()
-}
-if pd.isna(new_agg["spectral_slope"]):
-    new_agg["spectral_slope"] = -0.681887  # training mean
+    # === Step 2: Handle missing slope ===
+    if pd.isna(features["spectral_slope"]):
+        features["spectral_slope"] = -0.681887  # fallback training mean
 
-new_agg["label"] = 0
-new_agg["date"] = "2024-08-04"
-frames.append(pd.DataFrame([new_agg]))
+    features["label"] = label
+    features["date"] = date_str
 
-# === Step 4: Train model
-all_data = pd.concat(frames, ignore_index=True)
-X = all_data.drop(columns=["label", "date"])
-y = all_data["label"]
+    # === Step 3: Load or initialize training database ===
+    db_file = "cme_training_data.csv"
+    if os.path.exists(db_file):
+        data_df = pd.read_csv(db_file)
+    else:
+        data_df = pd.DataFrame()
 
-model = xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss")
-model.fit(X, y)
+    data_df = pd.concat([data_df, pd.DataFrame([features])], ignore_index=True)
+    data_df.to_csv(db_file, index=False)
 
-# === Step 5: Save model
-joblib.dump(model, model_path)
-print("\n✅ Model updated and saved as 'cme_classifier.pkl'")
+    # === Step 4: Train model ===
+    X = data_df.drop(columns=["label", "date"])
+    y = data_df["label"]
 
-# === Optional: Show new training data summary
-print("\n🧪 Updated Training Set:\n", all_data)
+    # Check for class diversity
+    unique_classes = sorted(y.unique())
+    if len(unique_classes) < 2:
+        print(f"⚠️ Cannot train model yet: only found label(s) {unique_classes}")
+        return
+
+    model = xgb.XGBClassifier(use_label_encoder=False, eval_metric="logloss")
+    model.fit(X, y)
+    joblib.dump(model, model_path)
+
+    print("\\n✅ Model updated and saved as 'cme_classifier.pkl'")
+    print(f"📦 Training entries: {len(y)}")
+    print(f"📊 Label balance: {y.value_counts().to_dict()}")
+"@ | Set-Content -Path "C:\Users\admins\Cme_Prediction_Pipeline.py"
