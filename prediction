@@ -1,0 +1,38 @@
+import pandas as pd
+import joblib
+import numpy as np
+from xgboost import XGBClassifier
+
+# === Load trained model ===
+model = joblib.load("cme_classifier.pkl")
+
+# === Path to your new derived metrics file ===
+new_file = r"C:\Users\admins\Desktop\Isro BAH\AL1_ASW91_L2_TH2_20240804_UNP_9999_999999_V02_CLEANED_DERIVED.xlsx"
+
+# === Load Derived_Metrics sheet ===
+df = pd.read_excel(new_file, sheet_name="Derived_Metrics")
+
+# === Aggregate features ===
+features = {
+    "peak_flux": df["peak_flux"].max(),
+    "mean_flux": df["mean_flux"].mean(),
+    "d_flux_dt": df["mean_flux"].diff().fillna(0).max(),
+    "energy_integrated_flux": df["energy_integrated_flux"].sum(),
+    "anisotropy_index": df["anisotropy_index"].mean(),
+    "spectral_slope": df["spectral_slope"].mean()
+}
+
+# === If spectral_slope is missing, use training mean ===
+if pd.isna(features["spectral_slope"]):
+    features["spectral_slope"] = -0.681887  # training mean
+
+# === Make prediction ===
+X_new = pd.DataFrame([features])
+pred = model.predict(X_new)[0]
+proba = model.predict_proba(X_new)[0][1]
+
+# === Output result ===
+label = "🚨 CME Detected" if pred == 1 else "☀️ No CME Detected"
+print(f"\n📁 File: {new_file}")
+print(f"🧠 Prediction: {label}")
+print(f"📊 Confidence: {proba:.4f}")
